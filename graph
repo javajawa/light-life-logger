@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+# vim: ts=4 expandtab
+
+from __future__ import annotations
+
+
+import calendar
+import datetime
+import importlib
+import json
+import os
+import pkgutil
+import typing
+
+from catz import CatZ, Chart, chart_list
+
+
+SCALE: int = 16
+
+
+def render_chart(chart: typing.Type[Chart], out: typing.TextIO, year: int):
+    out.write('<?xml version="1.0" encoding="utf-8"?>')
+    out.write('<svg xmlns="http://www.w3.org/2000/svg" version="1.1">')
+    out.write('<style>rect{stroke: black;}text{font: 24px sans-serif;}</style>')
+
+    max_x = 0
+
+    for month in range(1, 12):
+        start_dow, days = calendar.monthrange(year, month)
+
+        pos_y: int = SCALE * month
+
+        for day in range(1, days):
+            pos_x: int = day + start_dow - 1
+            pos_x = int(SCALE * (pos_x + int(pos_x / 7) / 2))
+            max_x = max(pos_x, max_x)
+
+            data: typing.Optional[CatZ] = get_data(year, month, day)
+            note: str = chart.note(data)
+
+            out.write(
+                '<rect x="%d" y="%d" width="%d" height="%d" fill="%s"' %
+                (pos_x, pos_y, SCALE, SCALE, chart.colour(chart.value(data)))
+            )
+
+            if note:
+                out.write(' title="%s"' % note)
+
+            out.write('/>')
+
+    out.write(
+        '<text x="%d" y="%d" text-anchor="middle">%s</text>' %
+        (max_x / 2, SCALE * 14, chart.title())
+    )
+
+    min_v: int = chart.min()
+    max_v: int = chart.max()
+    pos_x = int((max_x / 2) - (SCALE * (max_v - min_v) / 2))
+    pos_y = SCALE * 15
+
+    for val in range(min_v, max_v):
+        out.write(
+            '<rect x="%d" y="%d" width="%d" height="%d" fill="%s"/>' %
+            (pos_x + SCALE * (val - min_v), pos_y, SCALE, SCALE, chart.colour(val))
+        )
+
+    out.write('</svg>')
+
+def get_data(year: int, month: int, day: int) -> typing.Optional[CatZ]:
+    ofile: str = 'data/%04d-%02d-%02d.json' % (year, month, day)
+
+    try:
+        if os.path.exists(ofile):
+            with open(ofile, 'r') as in_stream:
+                json_blob = json.load(in_stream)
+
+            return CatZ.from_json(json_blob)
+    except json.decoder.JSONDecodeError:
+        pass
+
+    return None
+
+
+def main():
+    date: datetime.date = datetime.date.today()
+    path: str = os.path.dirname(__file__)
+
+    os.makedirs('charts', exist_ok=True)
+
+    for package in pkgutil.iter_modules([os.path.join(path, 'plugins')], 'plugins.'):
+        importlib.import_module(package.name)
+
+    for chart_type in chart_list():
+        file_name = os.path.join('charts', chart_type.filename())
+        print('Rendering chart', chart_type.title(), 'to', file_name)
+
+        with open(file_name, 'w') as out_file:
+            render_chart(chart_type, out_file, date.year)
+
+
+if __name__ == '__main__':
+    main()

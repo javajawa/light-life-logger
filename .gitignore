@@ -1,0 +1,5 @@
+/.mypy_cache
+/charts
+/data
+/plugins
+__pycache__
