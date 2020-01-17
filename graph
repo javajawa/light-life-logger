@@ -25,12 +25,12 @@ def render_chart(chart: typing.Type[Chart], out: typing.TextIO, year: int):
 
     max_x = 0
 
-    for month in range(1, 12):
+    for month in range(1, 13):
         start_dow, days = calendar.monthrange(year, month)
 
         pos_y: int = SCALE * month
 
-        for day in range(1, days):
+        for day in range(1, days + 1):
             pos_x: int = day + start_dow - 1
             pos_x = int(SCALE * (pos_x + int(pos_x / 7) / 2))
             max_x = max(pos_x, max_x)
@@ -50,13 +50,13 @@ def render_chart(chart: typing.Type[Chart], out: typing.TextIO, year: int):
 
     out.write(
         '<text x="%d" y="%d" text-anchor="middle">%s</text>' %
-        (max_x / 2, SCALE * 14, chart.title())
+        (max_x / 2, SCALE * 15, chart.title())
     )
 
     min_v: int = chart.min()
     max_v: int = chart.max()
     pos_x = int((max_x / 2) - (SCALE * (max_v - min_v) / 2))
-    pos_y = SCALE * 15
+    pos_y = SCALE * 16
 
     for val in range(min_v, max_v):
         out.write(
